@@ -299,10 +299,6 @@ footer{background:var(--ink);color:#cfcdd6;margin-top:20px}
       <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
     </div>
     <div class="topactions">
-      <button class="iconbtn" id="adminOpen" title="Store owner login">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 4v5c0 4.4-3 8.3-7 9-4-.7-7-4.6-7-9V7z"/></svg>
-        <span class="lbl">Admin</span>
-      </button>
       <button class="iconbtn cartbtn" id="cartOpen">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6 5 3H2"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
         <span class="lbl">Bag</span>
@@ -434,11 +430,6 @@ footer{background:var(--ink);color:#cfcdd6;margin-top:20px}
   </div>
 </div>
 
-<!-- ADMIN MODAL -->
-<div class="modal" id="adminModal" aria-label="Store management">
-  <div class="modal-card admin" id="adminCard"></div>
-</div>
-
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -449,8 +440,7 @@ footer{background:var(--ink);color:#cfcdd6;margin-top:20px}
 ========================================================= */
 const CONFIG = {
   whatsapp: "2347066737805",          // your WhatsApp number, digits only, incl. country code
-  currency: "₦",
-  adminPass: "nessier2026"            // default owner passcode (change it in Admin)
+  currency: "₦"
 };
 const CATEGORIES = ["New In","Clothing","Accessories","Lifestyle"];
 
@@ -501,41 +491,17 @@ function seed(){
 function id(){return 'p'+Math.random().toString(36).slice(2,9);}
 
 /* ---------- state ----------
-   Visitors see the PUBLISHED catalogue (products.json next to index.html).
-   The owner keeps a private working copy in this browser (localStorage) and
-   clicks "Export products.json" to publish updates for everyone. ------------ */
+   The storefront reads its catalogue from products.json (published next to
+   index.html). No admin panel lives here — products are managed privately
+   in the separate admin.html file, which is never uploaded. ---------------- */
 let PRODUCTS = [];                 // populated in boot()
 let CART = loadArr('nessier_cart_v1');
-let PASS = store.get('nessier_pass') || CONFIG.adminPass;
 let activeCat = "New In";
 
 function loadArr(key){
   const raw = store.get(key);
   if(raw){ try{ const v=JSON.parse(raw); if(Array.isArray(v)) return v; }catch(e){} }
   return [];
-}
-function ownerCopy(){                       // owner's saved working catalogue, if any
-  const raw = store.get('nessier_products_v1');
-  if(raw){ try{ const v=JSON.parse(raw); if(Array.isArray(v)&&v.length) return v; }catch(e){} }
-  return null;
-}
-function saveProducts(){ store.set('nessier_products_v1', JSON.stringify(PRODUCTS)); }
-function exportCatalogue(){
-  try{
-    const blob = new Blob([JSON.stringify(PRODUCTS,null,2)],{type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'products.json'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1500);
-    toast('products.json downloaded');
-  }catch(e){ toast('Export failed'); }
-}
-function importCatalogue(file){
-  const r = new FileReader();
-  r.onload = e=>{ try{ const j=JSON.parse(e.target.result);
-      if(Array.isArray(j)&&j.length){ PRODUCTS=j; saveProducts(); renderGrid(); adminTab='manage'; renderDashboard(); toast('Catalogue loaded'); }
-      else toast('That file has no products'); }
-    catch(err){ toast('Could not read that file'); } };
-  r.readAsText(file);
 }
 function saveCart(){ store.set('nessier_cart_v1', JSON.stringify(CART)); renderCartCount(); }
 
@@ -716,196 +682,6 @@ document.getElementById('coSend').onclick = ()=>{
 };
 
 /* =========================================================
-   ADMIN
-========================================================= */
-let adminTab = 'add';
-let editingId = null;
-let draftImg = null;
-
-function openAdmin(){
-  editingId=null; draftImg=null;
-  const card = document.getElementById('adminCard');
-  card.innerHTML = gateHTML();
-  showModal('adminModal');
-  const inp = card.querySelector('#gatePass');
-  const go = ()=>{
-    if(inp.value === PASS){ renderDashboard(); }
-    else { card.querySelector('.err').textContent = 'Incorrect passcode. Try again.'; inp.value=''; inp.focus(); }
-  };
-  card.querySelector('#gateBtn').onclick = go;
-  inp.onkeydown = e=>{ if(e.key==='Enter') go(); };
-  inp.focus();
-  card.querySelector('.closex').onclick = closeAll;
-}
-function gateHTML(){
-  return `<div class="admin-head"><div><h2 style="font-size:26px">Owner access</h2></div>
-    <button class="closex" data-close="admin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-    <div class="gate">
-      <img src="data:image/png;base64,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" alt="logo"/>
-      <h2>Store Management</h2>
-      <p>Enter your passcode to add or edit products.</p>
-      <div class="field"><input id="gatePass" type="password" placeholder="Passcode" autocomplete="off"/></div>
-      <button class="btn btn-primary block" id="gateBtn">Enter</button>
-      <div class="err"></div>
-      <div class="note-line">Default passcode is set in the code (<b>CONFIG.adminPass</b>). Change it under Settings once you're in.</div>
-    </div>`;
-}
-function renderDashboard(){
-  const card = document.getElementById('adminCard');
-  card.innerHTML = `
-    <div class="admin-head">
-      <div><span class="tag">Store owner</span><h2>Manage store</h2></div>
-      <button class="closex" data-close="admin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-    </div>
-    <div class="admin-body">
-      <div class="tabbar">
-        <button data-tab="add" class="${adminTab==='add'?'active':''}">${editingId?'Edit product':'Add product'}</button>
-        <button data-tab="manage" class="${adminTab==='manage'?'active':''}">Products (${PRODUCTS.length})</button>
-        <button data-tab="settings" class="${adminTab==='settings'?'active':''}">Settings</button>
-      </div>
-      <div id="adminPane"></div>
-    </div>`;
-  card.querySelector('.closex').onclick = closeAll;
-  card.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ adminTab=b.dataset.tab; if(adminTab!=='add'){editingId=null;draftImg=null;} renderDashboard(); });
-  const pane = card.querySelector('#adminPane');
-  if(adminTab==='add') pane.innerHTML = formHTML(editingId?PRODUCTS.find(p=>p.id===editingId):null), wireForm();
-  else if(adminTab==='manage') pane.innerHTML = manageHTML(), wireManage();
-  else pane.innerHTML = settingsHTML(), wireSettings();
-}
-function formHTML(p){
-  draftImg = p?p.img:null;
-  const sizes = p?(p.sizes||[]).join(', '):'S, M, L, XL';
-  return `
-    <div class="drop" id="dropZone">
-      ${draftImg?`<img class="prev" src="${draftImg}"/>`:`<div class="plus">＋</div>`}
-      <small>${draftImg?'Tap to change photo':'Tap to upload a product photo (JPG/PNG)'}</small>
-      <input type="file" id="imgFile" accept="image/*" hidden/>
-    </div>
-    <div class="field" style="margin-top:16px"><label>Product name</label><input id="fName" value="${p?escapeAttr(p.name):''}" placeholder="e.g. Empress Tailored Blazer"/></div>
-    <div class="field-row">
-      <div class="field"><label>Price (${CONFIG.currency})</label><input id="fPrice" type="number" min="0" value="${p?p.price:''}" placeholder="45000"/></div>
-      <div class="field"><label>Category</label><select id="fCat">${CATEGORIES.filter(c=>c!=='New In').map(c=>`<option ${p&&p.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
-    </div>
-    <div class="field"><label>Sizes (comma separated)</label><input id="fSizes" value="${sizes}" placeholder="S, M, L, XL  or  One Size"/></div>
-    <div class="field"><label>Description</label><textarea id="fDesc" placeholder="What makes this piece special…">${p?escapeAttr(p.desc||''):''}</textarea></div>
-    <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);margin-bottom:18px;cursor:pointer">
-      <input type="checkbox" id="fNew" ${(!p||p.new)?'checked':''} style="width:auto"/> Feature under “New In”
-    </label>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-primary block" id="fSave">${p?'Save changes':'Publish product'}</button>
-      ${p?'<button class="btn btn-ghost" id="fCancel">Cancel</button>':''}
-    </div>`;
-}
-function wireForm(){
-  const card = document.getElementById('adminCard');
-  const drop = card.querySelector('#dropZone');
-  const file = card.querySelector('#imgFile');
-  drop.onclick = ()=>file.click();
-  file.onchange = e=>{
-    const f = e.target.files[0]; if(!f) return;
-    compressImage(f, dataUrl=>{ draftImg = dataUrl; drop.innerHTML = `<img class="prev" src="${dataUrl}"/><small>Tap to change photo</small>`; });
-  };
-  card.querySelector('#fSave').onclick = saveForm;
-  const cancel = card.querySelector('#fCancel'); if(cancel) cancel.onclick=()=>{ editingId=null; draftImg=null; renderDashboard(); };
-}
-function saveForm(){
-  const card = document.getElementById('adminCard');
-  const name = card.querySelector('#fName').value.trim();
-  const price = parseInt(card.querySelector('#fPrice').value)||0;
-  const cat = card.querySelector('#fCat').value;
-  const sizes = card.querySelector('#fSizes').value.split(',').map(s=>s.trim()).filter(Boolean);
-  const desc = card.querySelector('#fDesc').value.trim();
-  const isNew = card.querySelector('#fNew').checked;
-  if(!name){ toast('Please add a product name'); return; }
-  if(!price){ toast('Please add a price'); return; }
-  const img = draftImg || placeholder(name,cat);
-  if(editingId){
-    const p = PRODUCTS.find(x=>x.id===editingId);
-    Object.assign(p,{name,price,cat,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img});
-    toast('Product updated');
-  } else {
-    PRODUCTS.unshift({id:id(),name,price,cat,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img});
-    toast('Product published');
-  }
-  saveProducts(); editingId=null; draftImg=null; adminTab='manage'; renderDashboard(); renderGrid();
-}
-function manageHTML(){
-  const publishBar = `
-    <div class="hint" style="background:var(--blush);padding:13px 15px;border-radius:11px;margin-bottom:14px;color:var(--ink-soft);line-height:1.55">
-      <b>Publishing to your live shop:</b> add or edit pieces below, click <b>Export products.json</b>, then upload that file next to <b>index.html</b> on your host. Every customer sees the published <b>products.json</b>.
-    </div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px">
-      <button class="btn btn-dark" id="mExport" style="padding:11px 18px;font-size:13px">↓ Export products.json</button>
-      <button class="mini" id="mImport">Load a products.json…</button>
-      <input type="file" id="mImportFile" accept="application/json,.json" hidden/>
-    </div>`;
-  if(!PRODUCTS.length) return publishBar + `<div style="text-align:center;padding:30px;color:var(--muted)"><div class="serif" style="font-size:26px;color:var(--ink)">No products yet</div><p>Add your first piece from the “Add product” tab.</p></div>`;
-  return publishBar + `<div class="plist">${PRODUCTS.map(p=>`
-    <div class="prow">
-      <div class="th"><img src="${p.img}" onerror="this.src='${placeholder(p.name,p.cat)}'"/></div>
-      <div><div class="nm">${escapeAttr(p.name)}</div><div class="sub">${escapeAttr(p.cat)} · ${money(p.price)} · ${p.new?'New In':'Standard'}</div></div>
-      <div class="acts"><button class="mini" data-edit="${p.id}">Edit</button><button class="mini del" data-del="${p.id}">Delete</button></div>
-    </div>`).join('')}</div>`;
-}
-function wireManage(){
-  const card = document.getElementById('adminCard');
-  const exp = card.querySelector('#mExport'); if(exp) exp.onclick = exportCatalogue;
-  const imp = card.querySelector('#mImport'); const impFile = card.querySelector('#mImportFile');
-  if(imp && impFile){ imp.onclick=()=>impFile.click(); impFile.onchange=e=>{ if(e.target.files[0]) importCatalogue(e.target.files[0]); }; }
-  card.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ editingId=b.dataset.edit; adminTab='add'; renderDashboard(); });
-  card.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-    if(confirm('Delete this product? This cannot be undone.')){
-      PRODUCTS = PRODUCTS.filter(p=>p.id!==b.dataset.del); saveProducts(); renderDashboard(); renderGrid(); toast('Product deleted');
-    }
-  });
-}
-function settingsHTML(){
-  return `
-    <div class="field"><label>WhatsApp number (with country code, digits only)</label><input id="sWa" value="${CONFIG.whatsapp}" placeholder="2347066737805"/></div>
-    <div class="field"><label>New owner passcode</label><input id="sPass" type="text" placeholder="Leave blank to keep current"/><div class="hint">Currently required to open this panel.</div></div>
-    <button class="btn btn-primary" id="sSave">Save settings</button>
-    <hr style="border:none;border-top:1px solid var(--line);margin:24px 0"/>
-    <div class="field"><label>Danger zone</label></div>
-    <button class="btn btn-ghost" id="sReset" style="border-color:var(--blush-2);color:var(--pink-deep)">Reset store to sample products</button>
-    <div class="hint">Removes your products and restores the original demo items.</div>`;
-}
-function wireSettings(){
-  const card = document.getElementById('adminCard');
-  card.querySelector('#sSave').onclick=()=>{
-    const wa = card.querySelector('#sWa').value.replace(/[^0-9]/g,'');
-    if(wa) CONFIG.whatsapp = wa;
-    const np = card.querySelector('#sPass').value.trim();
-    if(np){ PASS = np; store.set('nessier_pass', np); }
-    store.set('nessier_wa', CONFIG.whatsapp);
-    toast('Settings saved');
-  };
-  card.querySelector('#sReset').onclick=()=>{
-    if(confirm('Reset the whole store to sample products?')){
-      PRODUCTS = seed(); saveProducts(); renderGrid(); adminTab='manage'; renderDashboard(); toast('Store reset');
-    }
-  };
-}
-
-/* image compression for uploads (keeps localStorage small) */
-function compressImage(file, cb){
-  const reader = new FileReader();
-  reader.onload = e=>{
-    const img = new Image();
-    img.onload = ()=>{
-      const max = 800;
-      let {width:w,height:h} = img;
-      if(w>h && w>max){ h=h*max/w; w=max; } else if(h>max){ w=w*max/h; h=max; }
-      const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      try{ cb(cv.toDataURL('image/jpeg',0.82)); }catch(err){ cb(e.target.result); }
-    };
-    img.onerror=()=>cb(e.target.result);
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-/* =========================================================
    modal / drawer plumbing
 ========================================================= */
 const overlay = document.getElementById('overlay');
@@ -920,7 +696,6 @@ overlay.onclick = closeAll;
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(); });
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeAll);
 document.getElementById('cartOpen').onclick = openCart;
-document.getElementById('adminOpen').onclick = openAdmin;
 document.getElementById('search').addEventListener('input', ()=>{ renderGrid(); });
 
 /* toast */
@@ -933,20 +708,13 @@ function toast(msg){
 
 /* boot */
 async function boot(){
-  const savedWa = store.get('nessier_wa'); if(savedWa) CONFIG.whatsapp = savedWa;
   document.getElementById('yr').textContent = new Date().getFullYear();
-
-  const mine = ownerCopy();
-  if(mine){
-    PRODUCTS = mine;                       // this is the owner's device
-  } else {
-    let published = null;                  // everyone else sees the published catalogue
-    try{
-      const r = await fetch('products.json', {cache:'no-store'});
-      if(r.ok){ const j = await r.json(); if(Array.isArray(j) && j.length) published = j; }
-    }catch(e){ /* running locally or no products.json yet */ }
-    PRODUCTS = published || seed();        // fall back to sample pieces
-  }
+  let published = null;                    // the published catalogue every visitor sees
+  try{
+    const r = await fetch('products.json', {cache:'no-store'});
+    if(r.ok){ const j = await r.json(); if(Array.isArray(j) && j.length) published = j; }
+  }catch(e){ /* products.json not uploaded yet, or opened locally */ }
+  PRODUCTS = published || seed();          // fall back to sample pieces
   renderCats(); renderGrid(); renderCart();
 }
 boot();
