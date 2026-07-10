@@ -45,6 +45,18 @@ h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;margin:0
 .drop .prev{max-height:140px;margin:0 auto 8px;border-radius:8px}
 .drop .plus{font-size:28px;color:var(--pink-deep)}
 .drop small{color:var(--muted);font-size:12px}
+.varlist{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.varrow{display:grid;grid-template-columns:66px 1fr 36px;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px}
+.vdrop{width:66px;height:80px;border-radius:9px;border:1.6px dashed var(--blush-2);background:var(--blush);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
+.vdrop:hover{border-color:var(--pink)}
+.vdrop img{width:100%;height:100%;object-fit:cover}
+.vdrop .plus{font-size:24px;color:var(--pink-deep)}
+.vcolour{border:1.5px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;background:var(--mist);width:100%}
+.vcolour:focus{outline:none;border-color:var(--rose);background:#fff}
+.vrm{width:36px;height:36px;border-radius:8px;border:1.5px solid var(--blush-2);color:var(--pink-deep);font-size:18px;display:flex;align-items:center;justify-content:center;background:#fff}
+.vrm:hover{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
+.addvar{width:100%;border:1.5px dashed var(--line);border-radius:10px;padding:11px;font-size:13px;font-weight:600;color:var(--ink);background:#fff}
+.addvar:hover{border-color:var(--ink)}
 .chk{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);margin-bottom:18px;cursor:pointer}
 .chk input{width:auto}
 
@@ -172,11 +184,16 @@ function seed(){
 }
 
 /* state */
-let PRODUCTS = loadProducts();
+let PRODUCTS = loadProducts().map(normalize);
 let tab = 'add';
 let editingId = null;
-let draftImg = null;
+let draftVariants = [];
 
+function normalize(p){
+  let v = Array.isArray(p.variants) ? p.variants.filter(x=>x&&x.img) : null;
+  if(!v||!v.length){ v=[{color:p.color||'', img:p.img||placeholder(p.name,(p.gender&&p.gender!=='Unisex')?p.gender:p.cat)}]; }
+  p.variants=v; p.img=v[0].img; return p;
+}
 function loadProducts(){
   const raw = store.get('nessier_products_v1');
   if(raw){ try{ const v=JSON.parse(raw); if(Array.isArray(v)) return v; }catch(e){} }
@@ -213,15 +230,16 @@ function render(){
   else { pane.innerHTML = listHTML(); wireList(); }
 }
 function formHTML(p){
-  draftImg = p?p.img:null;
+  draftVariants = p
+    ? ((p.variants && p.variants.length) ? p.variants.map(v=>({color:v.color||'', img:v.img})) : [{color:p.color||'', img:p.img||null}])
+    : [{color:'', img:null}];
   const sizes = p?(p.sizes||[]).join(', '):'S, M, L, XL';
   return `
-    <div class="drop" id="dropZone">
-      ${draftImg?`<img class="prev" src="${draftImg}"/>`:`<div class="plus">＋</div>`}
-      <small>${draftImg?'Tap to change photo':'Tap to upload a product photo (JPG/PNG)'}</small>
-      <input type="file" id="imgFile" accept="image/*" hidden/>
-    </div>
-    <div class="field" style="margin-top:16px"><label>Product name</label><input id="fName" value="${p?escapeAttr(p.name):''}" placeholder="e.g. Empress Tailored Blazer"/></div>
+    <label style="display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:9px">Photos &amp; colours</label>
+    <div class="varlist" id="variants">${variantsHTML()}</div>
+    <button class="addvar" id="addVar">+ Add another colour / photo</button>
+    <div class="hint" style="margin-bottom:16px">Add one photo per colour and give each a colour name (e.g. Blush, Black). With a single photo and no colour name, it stays a simple one-image product.</div>
+    <div class="field"><label>Product name</label><input id="fName" value="${p?escapeAttr(p.name):''}" placeholder="e.g. Empress Tailored Blazer"/></div>
     <div class="field-row">
       <div class="field"><label>Price (${CURRENCY})</label><input id="fPrice" type="number" min="0" value="${p?p.price:''}" placeholder="45000"/></div>
       <div class="field"><label>Category</label><select id="fCat">${CATEGORIES.filter(c=>c!=='New In').map(c=>`<option ${p&&p.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -235,12 +253,35 @@ function formHTML(p){
       ${p?'<button class="btn btn-ghost" id="fCancel">Cancel</button>':''}
     </div>`;
 }
+function variantsHTML(){
+  return draftVariants.map((v,i)=>`
+    <div class="varrow">
+      <div class="vdrop" data-drop="${i}">${v.img?`<img src="${v.img}"/>`:`<span class="plus">＋</span>`}<input type="file" accept="image/*" hidden data-file="${i}"/></div>
+      <input class="vcolour" data-colour="${i}" value="${escapeAttr(v.color||'')}" placeholder="Colour name (e.g. Blush)"/>
+      <button class="vrm" data-rm="${i}" title="Remove" ${draftVariants.length<=1?'style="visibility:hidden"':''}>×</button>
+    </div>`).join('');
+}
+function renderVariants(){
+  const box=document.getElementById('variants');
+  box.innerHTML=variantsHTML();
+  wireVariants();
+}
+function wireVariants(){
+  const box=document.getElementById('variants');
+  box.querySelectorAll('[data-drop]').forEach(d=>{
+    const i=+d.dataset.drop;
+    const file=box.querySelector('[data-file="'+i+'"]');
+    d.onclick=()=>file.click();
+    file.onchange=e=>{ const f=e.target.files[0]; if(!f) return; compressImage(f, dd=>{ draftVariants[i].img=dd; renderVariants(); }); };
+  });
+  box.querySelectorAll('[data-colour]').forEach(inp=>{ inp.oninput=()=>{ draftVariants[+inp.dataset.colour].color=inp.value; }; });
+  box.querySelectorAll('[data-rm]').forEach(b=>{ b.onclick=()=>{ draftVariants.splice(+b.dataset.rm,1); if(!draftVariants.length) draftVariants.push({color:'',img:null}); renderVariants(); }; });
+}
 function wireForm(){
-  const drop=document.getElementById('dropZone'), file=document.getElementById('imgFile');
-  drop.onclick=()=>file.click();
-  file.onchange=e=>{ const f=e.target.files[0]; if(!f) return; compressImage(f, d=>{ draftImg=d; drop.innerHTML=`<img class="prev" src="${d}"/><small>Tap to change photo</small>`; }); };
+  wireVariants();
+  document.getElementById('addVar').onclick=()=>{ draftVariants.push({color:'',img:null}); renderVariants(); };
   document.getElementById('fSave').onclick=saveForm;
-  const c=document.getElementById('fCancel'); if(c) c.onclick=()=>{ editingId=null; draftImg=null; render(); };
+  const c=document.getElementById('fCancel'); if(c) c.onclick=()=>{ editingId=null; draftVariants=[]; render(); };
 }
 function saveForm(){
   const name=document.getElementById('fName').value.trim();
@@ -252,10 +293,12 @@ function saveForm(){
   const isNew=document.getElementById('fNew').checked;
   if(!name){ toast('Please add a product name'); return; }
   if(!price){ toast('Please add a price'); return; }
-  const img=draftImg||placeholder(name,gender!=='Unisex'?gender:cat);
-  if(editingId){ const p=PRODUCTS.find(x=>x.id===editingId); Object.assign(p,{name,price,cat,gender,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img}); toast('Product updated'); }
-  else { PRODUCTS.unshift({id:id(),name,price,cat,gender,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img}); toast('Product added'); }
-  save(); editingId=null; draftImg=null; tab='list'; render();
+  const variants = draftVariants.filter(v=>v.img).map(v=>({color:(v.color||'').trim(), img:v.img}));
+  if(!variants.length){ variants.push({color:'', img:placeholder(name, gender!=='Unisex'?gender:cat)}); }
+  const img = variants[0].img;
+  if(editingId){ const p=PRODUCTS.find(x=>x.id===editingId); Object.assign(p,{name,price,cat,gender,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img,variants}); toast('Product updated'); }
+  else { PRODUCTS.unshift({id:id(),name,price,cat,gender,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img,variants}); toast('Product added'); }
+  save(); editingId=null; draftVariants=[]; tab='list'; render();
 }
 function listHTML(){
   const bar=`
@@ -277,7 +320,7 @@ function listHTML(){
   return bar + `<div class="plist">${PRODUCTS.map(p=>`
     <div class="prow">
       <div class="th"><img src="${p.img}" onerror="this.src='${placeholder(p.name,p.cat)}'"/></div>
-      <div><div class="nm">${escapeAttr(p.name)}</div><div class="sub">${escapeAttr((p.gender||'Unisex')+' · '+p.cat)} · ${money(p.price)}${p.new?' · New In':''}</div></div>
+      <div><div class="nm">${escapeAttr(p.name)}</div><div class="sub">${escapeAttr((p.gender||'Unisex')+' · '+p.cat)} · ${money(p.price)}${(p.variants&&p.variants.length>1)?' · '+p.variants.length+' colours':''}${p.new?' · New In':''}</div></div>
       <div class="acts"><button class="mini" data-edit="${p.id}">Edit</button><button class="mini del" data-del="${p.id}">Delete</button></div>
     </div>`).join('')}</div>`;
 }
@@ -307,7 +350,7 @@ function importJSON(file){
 
 /* tabs + toast */
 document.getElementById('tabAdd').onclick=()=>{ tab='add'; render(); };
-document.getElementById('tabList').onclick=()=>{ editingId=null; draftImg=null; tab='list'; render(); };
+document.getElementById('tabList').onclick=()=>{ editingId=null; draftVariants=[]; tab='list'; render(); };
 let tT;
 function toast(m){ const t=document.getElementById('toast'); t.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 7 9 18l-5-5"/></svg>${m}`; t.classList.add('show'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('show'),2200); }
 
