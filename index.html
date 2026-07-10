@@ -214,7 +214,14 @@ footer{background:var(--ink);color:#cfcdd6;margin-top:20px}
 .pd-price{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:600;color:var(--pink-deep)}
 .pd-desc{color:var(--ink-soft);font-size:14.5px;margin:18px 0;line-height:1.65}
 .sizes-lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;font-weight:600}
+.sizes-lbl .cn{font-family:'Inter',sans-serif;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:600}
 .sizes{display:flex;gap:9px;flex-wrap:wrap}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatch{width:52px;height:64px;border-radius:10px;overflow:hidden;border:2px solid transparent;padding:0;background:var(--blush);cursor:pointer;transition:.15s}
+.swatch img{width:100%;height:100%;object-fit:cover}
+.swatch:hover{border-color:var(--blush-2)}
+.swatch.sel{border-color:var(--ink)}
+.card .cols{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive);font-weight:600;margin-top:5px}
 .size{min-width:46px;padding:10px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;font-weight:600;color:var(--ink);transition:.14s}
 .size:hover{border-color:var(--ink)}
 .size.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -578,6 +585,7 @@ function renderGrid(){
         <div class="cat">${escapeAttr(catLabel(p))}</div>
         <div class="nm">${escapeAttr(p.name)}</div>
         <div class="pr">${money(p.price)}<span class="add">Add +</span></div>
+        ${p.variants && p.variants.length>1 ? `<div class="cols">${p.variants.length} colours</div>` : ''}
       </div>
     </article>`).join('');
   grid.querySelectorAll('.card').forEach(c=>{
@@ -589,12 +597,30 @@ function renderGrid(){
 function escapeAttr(s){return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
 /* ---------- product detail ---------- */
+// Ensure every product has a variants array [{color, img}]; back-compat with single-image items.
+function normalizeProduct(p){
+  let v = Array.isArray(p.variants) ? p.variants.filter(x=>x && x.img) : null;
+  if(!v || !v.length){
+    v = [{color: p.color || '', img: p.img || placeholder(p.name, (p.gender&&p.gender!=='Unisex')?p.gender:p.cat)}];
+  }
+  p.variants = v;
+  p.img = v[0].img;                 // primary thumbnail
+  return p;
+}
 let pdSize = null;
+let pdColor = 0;                     // index of the selected variant
 function openProduct(p){
   pdSize = (p.sizes&&p.sizes.length===1)?p.sizes[0]:null;
+  pdColor = 0;
+  const multi = p.variants.length > 1;
+  const colourBlock = multi ? `
+      <div class="sizes-lbl">Colour — <span class="cn" id="pdColourName">${escapeAttr(p.variants[0].color||'Option 1')}</span></div>
+      <div class="swatches" id="pdSwatches">
+        ${p.variants.map((v,i)=>`<button class="swatch ${i===0?'sel':''}" data-i="${i}" title="${escapeAttr(v.color||('Option '+(i+1)))}"><img src="${v.img}" alt="${escapeAttr(v.color||'')}"/></button>`).join('')}
+      </div>` : '';
   const card = document.getElementById('pdCard');
   card.innerHTML = `
-    <div class="pd-img"><img src="${p.img}" alt="${escapeAttr(p.name)}" onerror="this.src='${placeholder(p.name,p.cat)}'"/></div>
+    <div class="pd-img"><img id="pdMainImg" src="${p.variants[0].img}" alt="${escapeAttr(p.name)}" onerror="this.src='${placeholder(p.name,p.cat)}'"/></div>
     <div class="pd-info">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="cat">${escapeAttr(catLabel(p))}</div>
@@ -603,6 +629,7 @@ function openProduct(p){
       <h2>${escapeAttr(p.name)}</h2>
       <div class="pd-price">${money(p.price)}</div>
       <p class="pd-desc">${escapeAttr(p.desc||'')}</p>
+      ${colourBlock}
       <div class="sizes-lbl">Select size</div>
       <div class="sizes" id="pdSizes">
         ${(p.sizes&&p.sizes.length?p.sizes:['One Size']).map(s=>`<button class="size ${pdSize===s?'sel':''}" data-s="${escapeAttr(s)}">${escapeAttr(s)}</button>`).join('')}
@@ -612,10 +639,19 @@ function openProduct(p){
       </div>
     </div>`;
   card.querySelectorAll('.size').forEach(b=>b.onclick=()=>{ pdSize=b.dataset.s; card.querySelectorAll('.size').forEach(x=>x.classList.toggle('sel',x===b)); });
+  if(multi){
+    card.querySelectorAll('.swatch').forEach(b=>b.onclick=()=>{
+      pdColor = parseInt(b.dataset.i);
+      card.querySelector('#pdMainImg').src = p.variants[pdColor].img;
+      card.querySelector('#pdColourName').textContent = p.variants[pdColor].color || ('Option '+(pdColor+1));
+      card.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('sel',x===b));
+    });
+  }
   card.querySelector('.closex').onclick=()=>closeAll();
   card.querySelector('#pdAdd').onclick=()=>{
     if(!pdSize){ toast('Please choose a size'); return; }
-    addToCart(p,pdSize); closeAll(); openCart();
+    const v = p.variants[pdColor];
+    addToCart(p,pdSize,v.color||'',v.img); closeAll(); openCart();
   };
   showModal('pdModal');
 }
@@ -623,13 +659,14 @@ function openProduct(p){
 /* ---------- cart ---------- */
 function quickAdd(p){
   const sz = (p.sizes&&p.sizes.length===1)?p.sizes[0]:(p.sizes&&p.sizes.length?p.sizes[0]:'One Size');
-  addToCart(p,sz); toast('Added to bag'); renderCartCount();
+  const v = p.variants[0];
+  addToCart(p,sz,v.color||'',v.img); toast('Added to bag'); renderCartCount();
 }
-function addToCart(p,size){
-  const key = p.id+'|'+size;
+function addToCart(p,size,color,img){
+  const key = p.id+'|'+size+'|'+(color||'');
   const found = CART.find(i=>i.key===key);
   if(found) found.qty++;
-  else CART.push({key,id:p.id,name:p.name,price:p.price,img:p.img,cat:p.cat,size,qty:1});
+  else CART.push({key,id:p.id,name:p.name,price:p.price,img:img||p.img,cat:p.cat,gender:p.gender,size,color:color||'',qty:1});
   saveCart(); renderCart();
 }
 function setQty(key,delta){
@@ -662,7 +699,7 @@ function renderCart(){
       <div class="th"><img src="${i.img}" alt="${escapeAttr(i.name)}" onerror="this.src='${placeholder(i.name,i.cat)}'"/></div>
       <div>
         <div class="nm">${escapeAttr(i.name)}</div>
-        <div class="sz">Size ${escapeAttr(i.size)} · ${escapeAttr(i.cat)}</div>
+        <div class="sz">${i.color?escapeAttr(i.color)+' · ':''}Size ${escapeAttr(i.size)} · ${escapeAttr(i.cat)}</div>
         <div class="stepper" data-key="${i.key}">
           <button data-d="-1" aria-label="Decrease">−</button><span>${i.qty}</span><button data-d="1" aria-label="Increase">+</button>
         </div>
@@ -691,7 +728,7 @@ function buildOrderMessage(){
   const addr = document.getElementById('coAddr').value.trim();
   const note = document.getElementById('coNote').value.trim();
   let msg = "Hello NESSIER EMPIRE 👑, I'd like to place an order:\n\n";
-  CART.forEach((i,n)=>{ msg += `${n+1}. ${i.name} — Size ${i.size} × ${i.qty} — ${money(i.price*i.qty)}\n`; });
+  CART.forEach((i,n)=>{ msg += `${n+1}. ${i.name}${i.color?' — '+i.color:''} — Size ${i.size} × ${i.qty} — ${money(i.price*i.qty)}\n`; });
   msg += `\nSubtotal: ${money(cartTotal())}\n`;
   msg += `\n— My details —\nName: ${name||'-'}\nPhone: ${phone||'-'}\nAddress: ${addr||'-'}`;
   if(note) msg += `\nNote: ${note}`;
@@ -739,7 +776,7 @@ async function boot(){
     const r = await fetch('products.json', {cache:'no-store'});
     if(r.ok){ const j = await r.json(); if(Array.isArray(j) && j.length) published = j; }
   }catch(e){ /* products.json not uploaded yet, or opened locally */ }
-  PRODUCTS = published || seed();          // fall back to sample pieces
+  PRODUCTS = (published || seed()).map(normalizeProduct);   // fall back to sample pieces
   renderCats(); renderGrid(); renderCart();
 }
 boot();
