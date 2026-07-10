@@ -76,8 +76,12 @@ h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;line-hei
 
 /* ---------- Category nav ---------- */
 .catnav{border-bottom:1px solid var(--line);background:#fff;position:sticky;top:63px;z-index:55}
-.catnav-inner{max-width:var(--maxw);margin:0 auto;padding:0 24px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.catnav-inner{max-width:var(--maxw);margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
 .catnav-inner::-webkit-scrollbar{display:none}
+.deptpill{white-space:nowrap;padding:7px 15px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--blush);margin-right:8px;transition:.15s;flex-shrink:0}
+.deptpill:hover{background:var(--blush-2)}
+.deptpill.active{background:var(--ink);color:#fff}
+.navdiv{width:1px;align-self:center;height:20px;background:var(--line);margin:0 12px 0 4px;flex-shrink:0}
 .chip{white-space:nowrap;padding:13px 4px;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-right:20px;transition:.15s}
 .chip:hover{color:var(--ink)}
 .chip.active{color:var(--ink);border-color:var(--pink)}
@@ -453,6 +457,7 @@ const CONFIG = {
   currency: "₦"
 };
 const CATEGORIES = ["New In","Clothing","Accessories","Lifestyle"];
+const DEPARTMENTS = ["Everyone","Women","Men"];
 
 /* ---------- storage (safe wrapper) ---------- */
 const mem = {};
@@ -480,21 +485,21 @@ function escapeXml(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&
 /* ---------- seed products ---------- */
 function seed(){
   return [
-    {id:id(),name:"Empress Tailored Blazer",cat:"Clothing",price:78000,sizes:["S","M","L","XL"],new:true,
-     desc:"A sharp-shouldered statement blazer in structured crepe. Cut to command a room while keeping every movement effortless.",img:placeholder("Empress Blazer","Clothing")},
-    {id:id(),name:"Noir Silk Slip Dress",cat:"Clothing",price:64000,sizes:["S","M","L"],new:true,
-     desc:"Bias-cut silk that skims the body in the most flattering way. Midnight ink for evenings that deserve it.",img:placeholder("Noir Slip Dress","Clothing")},
-    {id:id(),name:"Rosé Satin Two-Piece Set",cat:"Clothing",price:59000,sizes:["S","M","L","XL"],new:true,
-     desc:"Fluid satin co-ord in soft blush. Wear it together for impact or split it across your wardrobe.",img:placeholder("Rosé Satin Set","Clothing")},
-    {id:id(),name:"Crescent Gold Hoops",cat:"Accessories",price:22000,sizes:["One Size"],new:false,
-     desc:"Our signature crescent, reimagined as a lightweight everyday hoop in brushed gold.",img:placeholder("Crescent Hoops","Accessories")},
-    {id:id(),name:"Empire Structured Tote",cat:"Accessories",price:48000,sizes:["One Size"],new:false,
+    {id:id(),name:"Empress Tailored Blazer",cat:"Clothing",gender:"Women",price:78000,sizes:["S","M","L","XL"],new:true,
+     desc:"A sharp-shouldered statement blazer in structured crepe. Cut to command a room while keeping every movement effortless.",img:placeholder("Empress Blazer","Women")},
+    {id:id(),name:"Noir Silk Slip Dress",cat:"Clothing",gender:"Women",price:64000,sizes:["S","M","L"],new:true,
+     desc:"Bias-cut silk that skims the body in the most flattering way. Midnight ink for evenings that deserve it.",img:placeholder("Noir Slip Dress","Women")},
+    {id:id(),name:"Onyx Tailored Shirt",cat:"Clothing",gender:"Men",price:38000,sizes:["S","M","L","XL"],new:true,
+     desc:"A crisp cotton-poplin shirt with a clean collar and a considered fit — the quiet backbone of a sharp wardrobe.",img:placeholder("Onyx Shirt","Men")},
+    {id:id(),name:"Midnight Wool Overcoat",cat:"Clothing",gender:"Men",price:96000,sizes:["M","L","XL"],new:true,
+     desc:"A structured wool overcoat in deep ink. Weighty, warm, and cut to carry presence through any room.",img:placeholder("Wool Overcoat","Men")},
+    {id:id(),name:"Crescent Gold Hoops",cat:"Accessories",gender:"Women",price:22000,sizes:["One Size"],new:false,
+     desc:"Our signature crescent, reimagined as a lightweight everyday hoop in brushed gold.",img:placeholder("Crescent Hoops","Women")},
+    {id:id(),name:"Empire Structured Tote",cat:"Accessories",gender:"Unisex",price:48000,sizes:["One Size"],new:false,
      desc:"A clean-lined leather tote built for the everyday empire-builder. Roomy, refined, unmistakable.",img:placeholder("Empire Tote","Accessories")},
-    {id:id(),name:"Silk Monogram Scarf",cat:"Accessories",price:19000,sizes:["One Size"],new:false,
-     desc:"Hand-finished silk twill printed with the NESSIER crescent motif. Tie it, wear it, gift it.",img:placeholder("Monogram Scarf","Accessories")},
-    {id:id(),name:"Blush Ceramic Candle",cat:"Lifestyle",price:15000,sizes:["One Size"],new:false,
+    {id:id(),name:"Blush Ceramic Candle",cat:"Lifestyle",gender:"Unisex",price:15000,sizes:["One Size"],new:false,
      desc:"Soft florals and warm amber in a reusable blush vessel. Presence, for your space.",img:placeholder("Ceramic Candle","Lifestyle")},
-    {id:id(),name:"Empire Linen Robe",cat:"Lifestyle",price:41000,sizes:["S/M","L/XL"],new:false,
+    {id:id(),name:"Empire Linen Robe",cat:"Lifestyle",gender:"Unisex",price:41000,sizes:["S/M","L/XL"],new:false,
      desc:"Featherweight washed linen for slow mornings that still feel elevated.",img:placeholder("Linen Robe","Lifestyle")}
   ];
 }
@@ -507,6 +512,7 @@ function id(){return 'p'+Math.random().toString(36).slice(2,9);}
 let PRODUCTS = [];                 // populated in boot()
 let CART = loadArr('nessier_cart_v1');
 let activeCat = "New In";
+let activeDept = "Everyone";
 
 function loadArr(key){
   const raw = store.get(key);
@@ -517,30 +523,45 @@ function saveCart(){ store.set('nessier_cart_v1', JSON.stringify(CART)); renderC
 
 /* ---------- money ---------- */
 const money = n => CONFIG.currency + Number(n||0).toLocaleString('en-NG');
+const catLabel = p => (p.gender && p.gender!=='Unisex' ? p.gender+' · ' : '') + (p.cat||'');
 
-/* ---------- category nav ---------- */
+/* ---------- category + department nav ---------- */
 function renderCats(){
   const nav = document.getElementById('catnav');
-  nav.innerHTML = CATEGORIES.map(c=>`<button class="chip ${c===activeCat?'active':''}" data-cat="${c}">${c}</button>`).join('');
+  const pills = DEPARTMENTS.map(d=>`<button class="deptpill ${d===activeDept?'active':''}" data-dept="${d}">${d}</button>`).join('');
+  const chips = CATEGORIES.map(c=>`<button class="chip ${c===activeCat?'active':''}" data-cat="${c}">${c}</button>`).join('');
+  nav.innerHTML = pills + '<span class="navdiv"></span>' + chips;
+  nav.querySelectorAll('.deptpill').forEach(b=>b.onclick=()=>{ activeDept=b.dataset.dept; document.getElementById('search').value=''; renderCats(); renderGrid(); document.getElementById('shop').scrollIntoView({behavior:'smooth'}); });
   nav.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ activeCat=b.dataset.cat; document.getElementById('search').value=''; renderCats(); renderGrid(); document.getElementById('shop').scrollIntoView({behavior:'smooth'}); });
-  document.getElementById('footCats').innerHTML = CATEGORIES.map(c=>`<li><a href="#shop" data-fcat="${c}">${c}</a></li>`).join('');
-  document.querySelectorAll('[data-fcat]').forEach(a=>a.onclick=()=>{ activeCat=a.dataset.fcat; renderCats(); renderGrid(); });
+  const footLinks = ["Women","Men","Clothing","Accessories","Lifestyle"];
+  document.getElementById('footCats').innerHTML = footLinks.map(c=>`<li><a href="#shop" data-fnav="${c}">${c}</a></li>`).join('');
+  document.querySelectorAll('[data-fnav]').forEach(a=>a.onclick=()=>{
+    const v=a.dataset.fnav;
+    if(DEPARTMENTS.includes(v)){ activeDept=v; activeCat="New In"; } else { activeCat=v; }
+    renderCats(); renderGrid();
+  });
 }
 
 /* ---------- product grid ---------- */
+function inDept(p){
+  if(activeDept==='Everyone') return true;
+  const g = p.gender || 'Unisex';                 // items without a gender show everywhere
+  return g===activeDept || g==='Unisex';
+}
 function visibleProducts(){
   const q = document.getElementById('search').value.trim().toLowerCase();
-  let list = PRODUCTS.slice();
+  const deptLabel = activeDept==='Everyone' ? '' : activeDept + ' · ';
+  let list = PRODUCTS.filter(inDept);
   if(q){
-    list = list.filter(p=>(p.name+' '+p.cat+' '+(p.desc||'')).toLowerCase().includes(q));
+    list = list.filter(p=>(p.name+' '+p.cat+' '+(p.gender||'')+' '+(p.desc||'')).toLowerCase().includes(q));
     document.getElementById('secTitle').textContent = 'Results for “'+document.getElementById('search').value.trim()+'”';
   } else if(activeCat==="New In"){
-    list = list.filter(p=>p.new);
-    if(list.length===0) list = PRODUCTS.slice(0,8);
-    document.getElementById('secTitle').textContent = 'New In';
+    const fresh = list.filter(p=>p.new);
+    list = fresh.length ? fresh : list.slice(0,8);
+    document.getElementById('secTitle').textContent = deptLabel + 'New In';
   } else {
     list = list.filter(p=>p.cat===activeCat);
-    document.getElementById('secTitle').textContent = activeCat;
+    document.getElementById('secTitle').textContent = deptLabel + activeCat;
   }
   return list;
 }
@@ -549,7 +570,7 @@ function renderGrid(){
   const list = visibleProducts();
   document.getElementById('secCount').textContent = list.length ? list.length+' piece'+(list.length>1?'s':'') : '';
   if(!list.length){
-    grid.innerHTML = `<div class="empty"><div class="serif">Nothing here yet</div><p>Try another category or add products from the Admin panel.</p></div>`;
+    grid.innerHTML = `<div class="empty"><div class="serif">Nothing here yet</div><p>Try another department or category.</p></div>`;
     return;
   }
   grid.innerHTML = list.map(p=>`
@@ -560,7 +581,7 @@ function renderGrid(){
         <div class="quick">View details</div>
       </div>
       <div class="meta">
-        <div class="cat">${escapeAttr(p.cat)}</div>
+        <div class="cat">${escapeAttr(catLabel(p))}</div>
         <div class="nm">${escapeAttr(p.name)}</div>
         <div class="pr">${money(p.price)}<span class="add">Add +</span></div>
       </div>
@@ -582,7 +603,7 @@ function openProduct(p){
     <div class="pd-img"><img src="${p.img}" alt="${escapeAttr(p.name)}" onerror="this.src='${placeholder(p.name,p.cat)}'"/></div>
     <div class="pd-info">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="cat">${escapeAttr(p.cat)}</div>
+        <div class="cat">${escapeAttr(catLabel(p))}</div>
         <button class="closex" data-close="pd" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <h2>${escapeAttr(p.name)}</h2>

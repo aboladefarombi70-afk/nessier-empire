@@ -160,12 +160,14 @@ function placeholder(name,cat){
 }
 function seed(){
   return [
-    {id:id(),name:"Empress Tailored Blazer",cat:"Clothing",price:78000,sizes:["S","M","L","XL"],new:true,desc:"A sharp-shouldered statement blazer in structured crepe. Cut to command a room while keeping every movement effortless.",img:placeholder("Empress Blazer","Clothing")},
-    {id:id(),name:"Noir Silk Slip Dress",cat:"Clothing",price:64000,sizes:["S","M","L"],new:true,desc:"Bias-cut silk that skims the body in the most flattering way. Midnight ink for evenings that deserve it.",img:placeholder("Noir Slip Dress","Clothing")},
-    {id:id(),name:"Rosé Satin Two-Piece Set",cat:"Clothing",price:59000,sizes:["S","M","L","XL"],new:true,desc:"Fluid satin co-ord in soft blush. Wear it together for impact or split it across your wardrobe.",img:placeholder("Rosé Satin Set","Clothing")},
-    {id:id(),name:"Crescent Gold Hoops",cat:"Accessories",price:22000,sizes:["One Size"],new:false,desc:"Our signature crescent, reimagined as a lightweight everyday hoop in brushed gold.",img:placeholder("Crescent Hoops","Accessories")},
-    {id:id(),name:"Empire Structured Tote",cat:"Accessories",price:48000,sizes:["One Size"],new:false,desc:"A clean-lined leather tote built for the everyday empire-builder. Roomy, refined, unmistakable.",img:placeholder("Empire Tote","Accessories")},
-    {id:id(),name:"Blush Ceramic Candle",cat:"Lifestyle",price:15000,sizes:["One Size"],new:false,desc:"Soft florals and warm amber in a reusable blush vessel. Presence, for your space.",img:placeholder("Ceramic Candle","Lifestyle")}
+    {id:id(),name:"Empress Tailored Blazer",cat:"Clothing",gender:"Women",price:78000,sizes:["S","M","L","XL"],new:true,desc:"A sharp-shouldered statement blazer in structured crepe. Cut to command a room while keeping every movement effortless.",img:placeholder("Empress Blazer","Women")},
+    {id:id(),name:"Noir Silk Slip Dress",cat:"Clothing",gender:"Women",price:64000,sizes:["S","M","L"],new:true,desc:"Bias-cut silk that skims the body in the most flattering way. Midnight ink for evenings that deserve it.",img:placeholder("Noir Slip Dress","Women")},
+    {id:id(),name:"Onyx Tailored Shirt",cat:"Clothing",gender:"Men",price:38000,sizes:["S","M","L","XL"],new:true,desc:"A crisp cotton-poplin shirt with a clean collar and a considered fit — the quiet backbone of a sharp wardrobe.",img:placeholder("Onyx Shirt","Men")},
+    {id:id(),name:"Midnight Wool Overcoat",cat:"Clothing",gender:"Men",price:96000,sizes:["M","L","XL"],new:true,desc:"A structured wool overcoat in deep ink. Weighty, warm, and cut to carry presence through any room.",img:placeholder("Wool Overcoat","Men")},
+    {id:id(),name:"Crescent Gold Hoops",cat:"Accessories",gender:"Women",price:22000,sizes:["One Size"],new:false,desc:"Our signature crescent, reimagined as a lightweight everyday hoop in brushed gold.",img:placeholder("Crescent Hoops","Women")},
+    {id:id(),name:"Empire Structured Tote",cat:"Accessories",gender:"Unisex",price:48000,sizes:["One Size"],new:false,desc:"A clean-lined leather tote built for the everyday empire-builder. Roomy, refined, unmistakable.",img:placeholder("Empire Tote","Accessories")},
+    {id:id(),name:"Blush Ceramic Candle",cat:"Lifestyle",gender:"Unisex",price:15000,sizes:["One Size"],new:false,desc:"Soft florals and warm amber in a reusable blush vessel. Presence, for your space.",img:placeholder("Ceramic Candle","Lifestyle")},
+    {id:id(),name:"Empire Linen Robe",cat:"Lifestyle",gender:"Unisex",price:41000,sizes:["S/M","L/XL"],new:false,desc:"Featherweight washed linen for slow mornings that still feel elevated.",img:placeholder("Linen Robe","Lifestyle")}
   ];
 }
 
@@ -224,6 +226,7 @@ function formHTML(p){
       <div class="field"><label>Price (${CURRENCY})</label><input id="fPrice" type="number" min="0" value="${p?p.price:''}" placeholder="45000"/></div>
       <div class="field"><label>Category</label><select id="fCat">${CATEGORIES.filter(c=>c!=='New In').map(c=>`<option ${p&&p.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
     </div>
+    <div class="field"><label>Shop for</label><select id="fGender">${['Women','Men','Unisex'].map(g=>`<option ${((p&&(p.gender||'Unisex')===g)||(!p&&g==='Women'))?'selected':''}>${g}</option>`).join('')}</select><div class="hint">Choose “Unisex” to show it under both Women and Men.</div></div>
     <div class="field"><label>Sizes (comma separated)</label><input id="fSizes" value="${sizes}" placeholder="S, M, L, XL  or  One Size"/></div>
     <div class="field"><label>Description</label><textarea id="fDesc" placeholder="What makes this piece special…">${p?escapeAttr(p.desc||''):''}</textarea></div>
     <label class="chk"><input type="checkbox" id="fNew" ${(!p||p.new)?'checked':''}/> Feature under “New In” on the storefront</label>
@@ -243,14 +246,15 @@ function saveForm(){
   const name=document.getElementById('fName').value.trim();
   const price=parseInt(document.getElementById('fPrice').value)||0;
   const cat=document.getElementById('fCat').value;
+  const gender=document.getElementById('fGender').value;
   const sizes=document.getElementById('fSizes').value.split(',').map(s=>s.trim()).filter(Boolean);
   const desc=document.getElementById('fDesc').value.trim();
   const isNew=document.getElementById('fNew').checked;
   if(!name){ toast('Please add a product name'); return; }
   if(!price){ toast('Please add a price'); return; }
-  const img=draftImg||placeholder(name,cat);
-  if(editingId){ const p=PRODUCTS.find(x=>x.id===editingId); Object.assign(p,{name,price,cat,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img}); toast('Product updated'); }
-  else { PRODUCTS.unshift({id:id(),name,price,cat,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img}); toast('Product added'); }
+  const img=draftImg||placeholder(name,gender!=='Unisex'?gender:cat);
+  if(editingId){ const p=PRODUCTS.find(x=>x.id===editingId); Object.assign(p,{name,price,cat,gender,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img}); toast('Product updated'); }
+  else { PRODUCTS.unshift({id:id(),name,price,cat,gender,sizes:sizes.length?sizes:['One Size'],desc,new:isNew,img}); toast('Product added'); }
   save(); editingId=null; draftImg=null; tab='list'; render();
 }
 function listHTML(){
@@ -273,7 +277,7 @@ function listHTML(){
   return bar + `<div class="plist">${PRODUCTS.map(p=>`
     <div class="prow">
       <div class="th"><img src="${p.img}" onerror="this.src='${placeholder(p.name,p.cat)}'"/></div>
-      <div><div class="nm">${escapeAttr(p.name)}</div><div class="sub">${escapeAttr(p.cat)} · ${money(p.price)} · ${p.new?'New In':'Standard'}</div></div>
+      <div><div class="nm">${escapeAttr(p.name)}</div><div class="sub">${escapeAttr((p.gender||'Unisex')+' · '+p.cat)} · ${money(p.price)}${p.new?' · New In':''}</div></div>
       <div class="acts"><button class="mini" data-edit="${p.id}">Edit</button><button class="mini del" data-del="${p.id}">Delete</button></div>
     </div>`).join('')}</div>`;
 }
